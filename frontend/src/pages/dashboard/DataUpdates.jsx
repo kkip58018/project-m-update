@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import api from '../../api/client';
+import { resetQueryCaches } from '../../utils/reactQuery';
 
 const CORE_INDICATORS = [
   'GDP',
@@ -37,11 +38,10 @@ const DataUpdates = () => {
   const [activeTab, setActiveTab] = useState('indicators');
   const queryClient = useQueryClient();
 
-  // Invalidate every query whose key starts with any of the given prefixes.
-  // Prefix matching makes sure e.g. ['economicHeatmap'] also refreshes the
-  // per-currency queries ['economicHeatmap', 'USD'] used by the heatmap page.
-  const invalidate = (keys) =>
-    Promise.all(keys.map((k) => queryClient.invalidateQueries({ queryKey: [k] })));
+  // Drop the whole client cache after a successful write/refresh. The backend
+  // clears its own cache in the same request; active pages then refetch the
+  // fresh data immediately and inactive pages refetch on next visit.
+  const resetData = () => resetQueryCaches(queryClient);
 
   // Indicator form
   const [indicatorData, setIndicatorData] = useState({
@@ -82,7 +82,7 @@ const DataUpdates = () => {
     mutationFn: (data) => api.put(`/admin/indicators/${data.currency}/${data.indicator}/`, data),
     onSuccess: () => {
       alert('Indicator updated successfully');
-      invalidate(['economicHeatmap', 'ecoSurprise', 'economicStrength', 'topSetups', 'assetScorecard', 'forexScorecard']);
+      resetData();
     },
     onError: (error) => alert(`Error: ${error.response?.data?.error || error.message}`),
   });
@@ -91,7 +91,7 @@ const DataUpdates = () => {
     mutationFn: (data) => api.post('/admin/cot/', data),
     onSuccess: () => {
       alert('COT record updated successfully');
-      invalidate(['cotLatest', 'cotHistory', 'cotTrends', 'topSetups', 'assetScorecard', 'forexScorecard']);
+      resetData();
     },
     onError: (error) => alert(`Error: ${error.response?.data?.error || error.message}`),
   });
@@ -100,7 +100,7 @@ const DataUpdates = () => {
     mutationFn: (data) => api.put(`/admin/bond-yield/${data.currency}/`, { score: data.score }),
     onSuccess: () => {
       alert('Bond yield score updated successfully');
-      invalidate(['economicStrength', 'ecoSurprise', 'topSetups', 'assetScorecard', 'forexScorecard']);
+      resetData();
     },
     onError: (error) => alert(`Error: ${error.response?.data?.error || error.message}`),
   });
@@ -109,7 +109,7 @@ const DataUpdates = () => {
     mutationFn: (data) => api.put(`/admin/economic-strength/${data.currency}/`, data),
     onSuccess: () => {
       alert('Economic strength updated successfully');
-      invalidate(['economicStrength', 'ecoSurprise', 'topSetups', 'assetScorecard', 'forexScorecard']);
+      resetData();
     },
     onError: (error) => alert(`Error: ${error.response?.data?.error || error.message}`),
   });
@@ -118,7 +118,7 @@ const DataUpdates = () => {
     mutationFn: (currency) => api.post('/admin/refresh-indicators/', { currency }),
     onSuccess: (response) => {
       alert(`Refresh completed: ${response.data.message}`);
-      invalidate(['economicHeatmap', 'ecoSurprise', 'economicStrength', 'topSetups', 'assetScorecard', 'forexScorecard']);
+      resetData();
     },
     onError: (error) => alert(`Error: ${error.response?.data?.error || error.message}`),
   });
@@ -127,7 +127,7 @@ const DataUpdates = () => {
     mutationFn: () => api.post('/admin/refresh-all-indicators/'),
     onSuccess: (response) => {
       alert(`All indicators refreshed: ${response.data.message}`);
-      invalidate(['economicHeatmap', 'ecoSurprise', 'economicStrength', 'topSetups', 'assetScorecard', 'forexScorecard']);
+      resetData();
     },
     onError: (error) => alert(`Error: ${error.response?.data?.error || error.message}`),
   });
@@ -136,7 +136,7 @@ const DataUpdates = () => {
     mutationFn: () => api.post('/admin/refresh-seasonality/'),
     onSuccess: (response) => {
       alert(`Seasonality refreshed: ${response.data.message}`);
-      invalidate(['monthlySeasonality', 'annualSeasonality', 'topSetups', 'assetScorecard', 'forexScorecard']);
+      resetData();
     },
     onError: (error) => alert(`Error: ${error.response?.data?.error || error.message}`),
   });
@@ -149,7 +149,7 @@ const DataUpdates = () => {
         .map(([ticker, status]) => `${ticker}: ${status}`)
         .join('\n');
       alert(`Put-call refresh completed:\n${summary}`);
-      invalidate(['putCallRatio', 'retailSentiment', 'topSetups', 'assetScorecard', 'forexScorecard']);
+      resetData();
     },
     onError: (error) => alert(`Error: ${error.response?.data?.error || error.message}`),
   });
@@ -158,7 +158,7 @@ const DataUpdates = () => {
     mutationFn: () => api.post('/admin/clear-cache/'),
     onSuccess: () => {
       alert('Cache cleared successfully');
-      queryClient.invalidateQueries();
+      resetData();
     },
     onError: (error) => alert(`Error: ${error.response?.data?.error || error.message}`),
   });
@@ -604,9 +604,9 @@ const DataUpdates = () => {
             <div className="flex gap-4">
               <button
                 onClick={() => {
-                  queryClient.invalidateQueries();
-                  queryClient.refetchQueries();
-                  alert('All queries have been invalidated and refetched.');
+                  // Clear backend + client cache, then force-refetch what's visible.
+                  resetData();
+                  alert('All cached data cleared and refetched.');
                 }}
                 className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded transition"
               >

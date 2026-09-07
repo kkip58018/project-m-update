@@ -5,6 +5,7 @@ import api from '../../api/client';
 import Gauge from '../../components/charts/Gauge';
 import DataTable from '../../components/tables/DataTable';
 import { useAuth } from '../../context/AuthContext';
+import { resetQueryCaches } from '../../utils/reactQuery';
 import { Flame } from 'lucide-react'
 
 const CURRENCIES = ['USD', 'EUR', 'GBP', 'JPY', 'AUD', 'CAD', 'CHF', 'NZD'];
@@ -105,8 +106,9 @@ const EconomicHeatmap = () => {
       const { details } = response.data;
       const msg = `✅ Refresh completed\n${details}`;
       showToast(msg, 'success');
-      // Prefix match refreshes this currency AND every other currency's table.
-      await queryClient.invalidateQueries({ queryKey: ['economicHeatmap'] });
+      // Backend already cleared its cache; reset the client cache too so the
+      // visible table refetches the fresh values immediately.
+      resetQueryCaches(queryClient);
     } catch (err) {
       const errorMsg = err.response?.data?.error || err.message;
       showToast(`❌ Refresh failed: ${errorMsg}`, 'error');

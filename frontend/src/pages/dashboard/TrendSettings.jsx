@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '../../api/client';
+import { resetQueryCaches } from '../../utils/reactQuery';
 
 const TrendSettings = () => {
   const [periods, setPeriods] = useState('20,50,100,200');
@@ -21,7 +22,7 @@ const TrendSettings = () => {
     mutationFn: (periodsArray) => api.put('/admin/trend-settings/', { ma_periods: periodsArray }),
     onSuccess: () => {
       alert('Trend settings updated successfully');
-      queryClient.invalidateQueries(['trendSettings']);
+      resetQueryCaches(queryClient);
     },
     onError: (error) => alert(`Error: ${error.response?.data?.error || error.message}`),
   });

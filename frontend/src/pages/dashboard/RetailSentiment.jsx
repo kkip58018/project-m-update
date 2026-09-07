@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { analysis } from '../../api/endpoints';
 import api from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
+import { resetQueryCaches } from '../../utils/reactQuery';
 import { Users } from 'lucide-react';
 
 const CRYPTO_PAIRS = ['BTC/USD', 'ETH/USD'];
@@ -34,7 +35,9 @@ const RetailSentiment = () => {
     setIsRefreshing(true);
     try {
       await api.post('/admin/refresh-retail-sentiment/');
-      await queryClient.invalidateQueries({ queryKey: ['retailSentiment'] });
+      // Backend cache is cleared server-side; reset the client cache so the
+      // visible sentiment bars refetch the fresh data.
+      resetQueryCaches(queryClient);
       alert('Retail sentiment refreshed successfully!');
     } catch (err) {
       alert(`Refresh failed: ${err.response?.data?.error || err.message}`);

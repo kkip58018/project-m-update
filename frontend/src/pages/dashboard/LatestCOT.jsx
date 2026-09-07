@@ -4,6 +4,7 @@ import api from '../../api/client';
 import Plot from 'react-plotly.js';
 import { useAuth } from '../../context/AuthContext';
 import { useState } from 'react';
+import { resetQueryCaches } from '../../utils/reactQuery';
 import { FileText,CalendarRange  } from 'lucide-react';
 
 const LatestCOT = () => {
@@ -83,8 +84,9 @@ const LatestCOT = () => {
     setIsRefreshing(true);
     try {
       await api.post('/admin/refresh-cot/');
-      await queryClient.invalidateQueries({ queryKey: ['cotLatest'] });
-      await queryClient.invalidateQueries({ queryKey: ['cotHistory'] });
+      // Backend cache cleared server-side; reset the client cache so this page
+      // and the COT history/trend pages refetch the fresh data.
+      resetQueryCaches(queryClient);
       alert('COT data refreshed successfully!');
     } catch (err) {
       alert(`Refresh failed: ${err.response?.data?.error || err.message}`);
