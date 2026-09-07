@@ -1,0 +1,6 @@
+# Single worker on purpose: views share one in-memory Analyzer (see
+# apps/analysis/services/analyzer.get_analyzer) and a per-process LocMemCache,
+# so a manual/auto refresh in this process is what the API serves. Scaling to
+# multiple workers would require a shared cache (REDIS_URL) and reload across
+# workers before refresh buttons are guaranteed to propagate.
+web: gunicorn config.wsgi:application --workers 1
