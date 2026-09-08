@@ -204,6 +204,15 @@ const DataUpdates = () => {
     onError: (error) => alert(`Error: ${error.response?.data?.error || error.message}`),
   });
 
+  const saveAllScores = useMutation({
+    mutationFn: () => api.post('/admin/save-score-history/', { all: true }),
+    onSuccess: (response) => {
+      alert(response.data.message);
+      resetData();
+    },
+    onError: (error) => alert(`Error: ${error.response?.data?.error || error.message}`),
+  });
+
   // ---------- Form handlers ----------
   const handleIndicatorSubmit = (e) => {
     e.preventDefault();
@@ -689,18 +698,30 @@ const DataUpdates = () => {
               </div>
             )}
 
-            <button
-              onClick={() =>
-                saveScoreHistory.mutate({
-                  type: scoreType,
-                  key: scoreType === 'asset' ? scoreAsset : scorePair,
-                })
-              }
-              disabled={saveScoreHistory.isPending}
-              className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded transition disabled:opacity-50"
-            >
-              {saveScoreHistory.isPending ? 'Saving...' : "Save Today's Score"}
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() =>
+                  saveScoreHistory.mutate({
+                    type: scoreType,
+                    key: scoreType === 'asset' ? scoreAsset : scorePair,
+                  })
+                }
+                disabled={saveScoreHistory.isPending || saveAllScores.isPending}
+                className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded transition disabled:opacity-50"
+              >
+                {saveScoreHistory.isPending ? 'Saving...' : "Save Selected"}
+              </button>
+              <button
+                onClick={() => saveAllScores.mutate()}
+                disabled={saveScoreHistory.isPending || saveAllScores.isPending}
+                className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded transition disabled:opacity-50"
+              >
+                {saveAllScores.isPending ? 'Saving all...' : 'Save ALL Scorecards'}
+              </button>
+            </div>
+            <p className="text-gray-500 text-xs mt-2">
+              "Save ALL" snapshots today's score for every currency, asset and forex pair at once.
+            </p>
           </div>
         )}
 

@@ -140,26 +140,30 @@ class TursoClient:
         return self.query(sql, [pair])
 
     def save_forex_score(self, pair: str, score: float, date: str) -> bool:
+        # Ensure the history table exists (some Turso DBs have never created it).
+        self.query(
+            "CREATE TABLE IF NOT EXISTS forex_historical_scores ("
+            "date TEXT NOT NULL, pair TEXT NOT NULL, score REAL NOT NULL, "
+            "PRIMARY KEY (pair, date))"
+        )
         sql = "INSERT OR REPLACE INTO forex_historical_scores (date, pair, score) VALUES (?, ?, ?)"
-        try:
-            self.query(sql, [date, pair, score])
-            return True
-        except Exception as e:
-            logger.error(f"Failed to save forex score: {e}")
-            return False
+        self.query(sql, [date, pair, score])
+        return True
 
     def get_asset_score_history(self, asset: str) -> List[Dict]:
         sql = "SELECT date, score FROM asset_historical_scores WHERE asset = ? ORDER BY date ASC"
         return self.query(sql, [asset])
 
     def save_asset_score(self, asset: str, score: float, date: str) -> bool:
+        # Ensure the history table exists (some Turso DBs have never created it).
+        self.query(
+            "CREATE TABLE IF NOT EXISTS asset_historical_scores ("
+            "date TEXT NOT NULL, asset TEXT NOT NULL, score REAL NOT NULL, "
+            "PRIMARY KEY (asset, date))"
+        )
         sql = "INSERT OR REPLACE INTO asset_historical_scores (date, asset, score) VALUES (?, ?, ?)"
-        try:
-            self.query(sql, [date, asset, score])
-            return True
-        except Exception as e:
-            logger.error(f"Failed to save asset score: {e}")
-            return False
+        self.query(sql, [date, asset, score])
+        return True
 
     # ---------- Put/Call Ratio ----------
     def get_put_call_history(self, ticker: str) -> List[Dict]:

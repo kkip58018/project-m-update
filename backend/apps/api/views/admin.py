@@ -329,47 +329,72 @@ class RefreshEconomicStrengthView(APIView):
 class SaveScoreHistoryView(APIView):
     permission_classes = [IsAuthenticated, IsAdminUser]
 
+    NON_FOREX_ASSETS = [
+        'XAU/USD', 'XAG/USD', 'BTC/USD', 'ETH/USD',
+        'USOIL/USD', 'SPX500/USD', 'NAS100/USD',
+    ]
+
+    def _save_one(self, score_type, key):
+        today = datetime.now().strftime('%Y-%m-%d')
+        if score_type == 'forex':
+            if key not in FOREX_PAIRS:
+                raise ValueError(f'{key} is not a supported forex pair')
+            score = int(analyzer.get_forex_scorecard(key).get('overall', 0))
+            turso_client.save_forex_score(key, score, today)
+        elif score_type == 'asset':
+            score = int(analyzer.get_asset_scorecard(key).get('overall_score', 0))
+            turso_client.save_asset_score(key, score, today)
+        else:
+            raise ValueError('type must be "asset" or "forex"')
+        return key, score, today
+
     def post(self, request):
-        """Persist the current overall score for an asset or forex pair to its
-        history table (turso), so the Scorecard history charts accumulate data."""
-        score_type = (request.data.get('type') or '').lower()
-        key = (request.data.get('key') or '').strip().upper()
-
-        if score_type not in ('asset', 'forex') or not key:
-            return Response(
-                {'error': 'type (asset or forex) and key are required'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
+        """Save the current overall score for one market or for ALL markets at
+        once (send {"all": true} to save every asset and forex pair)."""
         try:
-            if score_type == 'forex':
-                if key not in FOREX_PAIRS:
-                    return Response(
-                        {'error': f'{key} is not a supported forex pair'},
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
-                scorecard = analyzer.get_forex_scorecard(key)
-                score = int(scorecard.get('overall', 0))
+            if request.data.get('all'):
                 today = datetime.now().strftime('%Y-%m-%d')
-                ok = turso_client.save_forex_score(key, score, today)
-            else:
-                scorecard = analyzer.get_asset_scorecard(key)
-                score = int(scorecard.get('overall_score', 0))
-                today = datetime.now().strftime('%Y-%m-%d')
-                ok = turso_client.save_asset_score(key, score, today)
+                saved = 0
+                failures = []
+                # Assets: the 8 major currencies + metals/crypto/indices/oil.
+                asset_keys = list(STANDARD_CURRENCIES) + list(self.NON_FOREX_ASSETS)
+                for key in asset_keys:
+                    try:
+                        _, score, _ = self._save_one('asset', key)
+                        saved += 1
+                    except Exception as e:  # noqa: BLE001
+                        failures.append(f"{key} ({e})")
+                for pair in FOREX_PAIRS:
+                    try:
+                        _, score, _ = self._save_one('forex', pair)
+                        saved += 1
+                    except Exception as e:  # noqa: BLE001
+                        failures.append(f"{pair} ({e})")
+
+                cache.clear()
+                total = len(asset_keys) + len(FOREX_PAIRS)
+                message = f'Saved {saved} of {total} score histories for {today}.'
+                if failures:
+                    message += f' Failed ({len(failures)}): ' + '; '.join(failures[:10])
+                return Response({'message': message, 'saved': saved, 'failed': failures})
+
+            # Single save path
+            score_type = (request.data.get('type') or '').lower()
+            key = (request.data.get('key') or '').strip().upper()
+            if not key:
+                return Response(
+                    {'error': 'type (asset or forex), key, or all=true is required'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            key, score, today = self._save_one(score_type, key)
+            cache.clear()
+            return Response({'message': f'Score history saved for {key}: {score} on {today}'})
+
         except ValueError as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             logger.error(f"Save score history failed: {e}")
-            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-        cache.clear()
-        if not ok:
-            return Response(
-                {'error': 'Failed to write score history to Turso'},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
-        return Response({'message': f'Score history saved for {key}: {score} on {today}'})
+            return Response({'error': f'Failed to save score history: {e}'}, status=500)
 
 
 class RefreshPutCallView(APIView):
