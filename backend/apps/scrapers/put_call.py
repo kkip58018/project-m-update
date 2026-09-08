@@ -153,18 +153,14 @@ def _fetch_barchart_ratio(ticker: str) -> float:
         return None
 
 
-def fetch_and_store_put_call_ratio(asset_name: str, ticker: str, supabase_client, turso_client):
+def store_put_call_ratio(asset_name: str, ticker: str, ratio: float, supabase_client, turso_client):
     """
-    Fetch ratio from Barchart and store it in Turso.
-    Also updates the retail sentiment in Supabase (for the asset).
-    Returns the ratio if successful, else None.
+    Persist a known put/call ratio:
+      * today's ratio into Turso's put_call_history table
+      * a derived contrarian retail score into Supabase's retail_sentiment table
+
+    Used both by the server-side scraper and by the local refresh command.
     """
-    from apps.analysis.constants import FOREX_PAIRS
-
-    ratio = fetch_put_call_ratio(ticker)
-    if ratio is None:
-        return None
-
     # Store in Turso
     today = datetime.now().strftime("%Y-%m-%d")
     turso_client.save_put_call_ratio(ticker, ratio, today)
@@ -215,4 +211,18 @@ def fetch_and_store_put_call_ratio(asset_name: str, ticker: str, supabase_client
                 'long_pct': 50.0
             })
 
+    return True
+
+
+def fetch_and_store_put_call_ratio(asset_name: str, ticker: str, supabase_client, turso_client):
+    """
+    Fetch ratio from Barchart (Yahoo fallback) and store it in Turso.
+    Also updates the retail sentiment in Supabase (for the asset).
+    Returns the ratio if successful, else None.
+    """
+    ratio = fetch_put_call_ratio(ticker)
+    if ratio is None:
+        return None
+
+    store_put_call_ratio(asset_name, ticker, ratio, supabase_client, turso_client)
     return ratio

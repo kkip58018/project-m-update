@@ -268,7 +268,7 @@ class RetailSentimentView(APIView):
         serializer = RetailSentimentSerializer(data, many=True)
         return Response(serializer.data)
 
-@method_decorator(cache_page(CACHE_12HOURS), name='dispatch')
+@method_decorator(cache_page(CACHE_1HOUR), name='dispatch')
 class PutCallRatioView(APIView):
     permission_classes = [IsAuthenticated]
 
