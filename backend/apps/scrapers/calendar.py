@@ -42,6 +42,20 @@ def _to_eat(date_value):
         return text
 
 
+def _eat_date(date_value):
+    """Return the event's calendar date in EAT as YYYY-MM-DD (for client filters)."""
+    if not date_value:
+        return ""
+    text = str(date_value).strip()
+    try:
+        dt = datetime.fromisoformat(text)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt.astimezone(EAT).strftime("%Y-%m-%d")
+    except ValueError:
+        return ""
+
+
 def _is_relevant(currency_upper, event_lower):
     """Keep only events that map to the indicators the dashboard tracks."""
     # Global keywords
@@ -142,6 +156,7 @@ def fetch_forexfactory_calendar():
 
         parsed.append({
             "date_time": _to_eat(raw_date),
+            "date": _eat_date(raw_date),
             "currency": currency,
             "event": event_name,
             "actual": _str(item.get("actual")),

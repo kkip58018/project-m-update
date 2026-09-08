@@ -1,9 +1,13 @@
 import os
+import time
 import requests
 from typing import List, Dict, Any, Optional
 import logging
 
 logger = logging.getLogger(__name__)
+
+MAX_RETRIES = 3
+
 
 class TursoClient:
     _instance = None
@@ -19,53 +23,74 @@ class TursoClient:
         self.token = os.environ.get('TURSO_AUTH_TOKEN')
         if not self.url or not self.token:
             raise ValueError("Turso environment variables missing.")
-        
+
         host = self.url.split('://')[-1].split('/')[0]
         self.http_endpoint = f"https://{host}/v2/pipeline"
-        self.session = requests.Session()
-        self.session.headers.update({
+        self.session = self._new_session()
+
+    def _new_session(self) -> requests.Session:
+        session = requests.Session()
+        session.headers.update({
             "Authorization": f"Bearer {self.token}",
             "Content-Type": "application/json",
         })
+        return session
 
     def _execute(self, sql: str, args: Optional[List[Dict]] = None) -> List[Dict]:
-        """Execute SQL and return rows as list of dicts with column names."""
+        """Execute SQL and return rows as list of dicts with column names.
+
+        Turso occasionally closes an idle keep-alive connection; retrying on a
+        brand-new session (instead of reusing the stale socket) fixes the
+        intermittent ConnectionReset errors.
+        """
         payload = {
             "requests": [{
                 "type": "execute",
                 "stmt": {"sql": sql, "args": args or []}
             }]
         }
-        try:
-            resp = self.session.post(self.http_endpoint, json=payload)
-            resp.raise_for_status()
-            data = resp.json()
-            
-            # Extract rows and column names
-            rows = []
-            cols = []
-            if data.get('results'):
-                for result in data['results']:
-                    result_data = result.get('response', {}).get('result', {})
-                    cols = result_data.get('cols', [])
-                    rows_data = result_data.get('rows', [])
-                    
-                    # Convert to dict with column names
-                    for row in rows_data:
-                        if isinstance(row, list):
-                            row_dict = {}
-                            for i, col in enumerate(cols):
-                                if isinstance(row[i], dict):
-                                    row_dict[col['name']] = row[i].get('value')
-                                else:
-                                    row_dict[col['name']] = row[i]
-                            rows.append(row_dict)
-                        elif isinstance(row, dict):
-                            rows.append(row)
-            return rows
-        except Exception as e:
-            logger.error(f"Turso query failed: {e}")
-            raise
+
+        for attempt in range(1, MAX_RETRIES + 1):
+            try:
+                resp = self.session.post(self.http_endpoint, json=payload)
+                resp.raise_for_status()
+                data = resp.json()
+
+                # Extract rows and column names
+                rows = []
+                cols = []
+                if data.get('results'):
+                    for result in data['results']:
+                        result_data = result.get('response', {}).get('result', {})
+                        cols = result_data.get('cols', [])
+                        rows_data = result_data.get('rows', [])
+
+                        # Convert to dict with column names
+                        for row in rows_data:
+                            if isinstance(row, list):
+                                row_dict = {}
+                                for i, col in enumerate(cols):
+                                    if isinstance(row[i], dict):
+                                        row_dict[col['name']] = row[i].get('value')
+                                    else:
+                                        row_dict[col['name']] = row[i]
+                                rows.append(row_dict)
+                            elif isinstance(row, dict):
+                                rows.append(row)
+                return rows
+            except Exception as e:
+                logger.warning(f"Turso query failed (attempt {attempt}/{MAX_RETRIES}): {e}")
+                if attempt < MAX_RETRIES:
+                    # Drop the stale keep-alive connection and reconnect fresh.
+                    try:
+                        self.session.close()
+                    except Exception:  # noqa: BLE001
+                        pass
+                    self.session = self._new_session()
+                    time.sleep(0.5 * attempt)
+                else:
+                    logger.error(f"Turso query failed after {MAX_RETRIES} attempts: {e}")
+                    raise
 
     def query(self, sql: str, params: Optional[List[Any]] = None) -> List[Dict]:
         """Convenience method with typed params."""

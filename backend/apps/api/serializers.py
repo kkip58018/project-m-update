@@ -103,6 +103,7 @@ class EconomicHeatmapSerializer(serializers.Serializer):
 
 class EconomicEventSerializer(serializers.Serializer):
     date_time = serializers.CharField()
+    date = serializers.CharField()
     currency = serializers.CharField()
     event = serializers.CharField()
     actual = serializers.CharField()

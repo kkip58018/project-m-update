@@ -160,12 +160,13 @@ def store_put_call_ratio(asset_name: str, ticker: str, ratio: float, supabase_cl
       * a derived contrarian retail score into Supabase's retail_sentiment table
 
     Used both by the server-side scraper and by the local refresh command.
+    Returns True only if the Turso history write succeeded.
     """
     # Store in Turso
     today = datetime.now().strftime("%Y-%m-%d")
-    turso_client.save_put_call_ratio(ticker, ratio, today)
+    turso_ok = turso_client.save_put_call_ratio(ticker, ratio, today)
 
-    # Update retail sentiment for the asset
+    # Update retail sentiment for the asset (independent of the Turso write)
     asset_map = {
         "IBIT": "BTC",
         "GLD": "XAU",
@@ -211,7 +212,7 @@ def store_put_call_ratio(asset_name: str, ticker: str, ratio: float, supabase_cl
                 'long_pct': 50.0
             })
 
-    return True
+    return turso_ok
 
 
 def fetch_and_store_put_call_ratio(asset_name: str, ticker: str, supabase_client, turso_client):

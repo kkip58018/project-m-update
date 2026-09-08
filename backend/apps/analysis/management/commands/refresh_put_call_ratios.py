@@ -114,9 +114,13 @@ class Command(BaseCommand):
             if dry_run:
                 self.stdout.write(self.style.SUCCESS("(dry-run, not saved)"))
             else:
-                store_put_call_ratio(asset_name, ticker, ratio, supabase_client, turso_client)
-                self.stdout.write(self.style.SUCCESS("-> saved"))
-                updated += 1
+                ok = store_put_call_ratio(asset_name, ticker, ratio, supabase_client, turso_client)
+                if ok:
+                    self.stdout.write(self.style.SUCCESS("-> saved"))
+                    updated += 1
+                else:
+                    self.stdout.write(self.style.ERROR("-> TURSO SAVE FAILED"))
+                    failed.append(ticker)
 
             if pause > 0:
                 time.sleep(pause)
