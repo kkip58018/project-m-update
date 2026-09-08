@@ -1,5 +1,6 @@
 import os
 import time
+import threading
 import requests
 from typing import List, Dict, Any, Optional
 import logging
@@ -27,6 +28,7 @@ class TursoClient:
         host = self.url.split('://')[-1].split('/')[0]
         self.http_endpoint = f"https://{host}/v2/pipeline"
         self.session = self._new_session()
+        self._lock = threading.Lock()  # serializes requests across threads
 
     def _new_session(self) -> requests.Session:
         session = requests.Session()
@@ -52,9 +54,10 @@ class TursoClient:
 
         for attempt in range(1, MAX_RETRIES + 1):
             try:
-                resp = self.session.post(self.http_endpoint, json=payload)
-                resp.raise_for_status()
-                data = resp.json()
+                with self._lock:
+                    resp = self.session.post(self.http_endpoint, json=payload)
+                    resp.raise_for_status()
+                    data = resp.json()
 
                 # Extract rows and column names
                 rows = []
@@ -82,11 +85,12 @@ class TursoClient:
                 logger.warning(f"Turso query failed (attempt {attempt}/{MAX_RETRIES}): {e}")
                 if attempt < MAX_RETRIES:
                     # Drop the stale keep-alive connection and reconnect fresh.
-                    try:
-                        self.session.close()
-                    except Exception:  # noqa: BLE001
-                        pass
-                    self.session = self._new_session()
+                    with self._lock:
+                        try:
+                            self.session.close()
+                        except Exception:  # noqa: BLE001
+                            pass
+                        self.session = self._new_session()
                     time.sleep(0.5 * attempt)
                 else:
                     logger.error(f"Turso query failed after {MAX_RETRIES} attempts: {e}")

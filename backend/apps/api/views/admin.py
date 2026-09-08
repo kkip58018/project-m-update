@@ -11,6 +11,7 @@ from django.core.cache import cache
 from apps.scrapers.put_call import fetch_and_store_put_call_ratio
 from apps.services import supabase_client, turso_client
 import logging
+import threading
 from curl_cffi import requests
 from bs4 import BeautifulSoup
 import time
@@ -20,6 +21,16 @@ from apps.analysis.constants import ECON_SCRAPE_URLS, DIRECTION
 
 logger = logging.getLogger(__name__)
 analyzer = get_analyzer()
+
+# Background "save all" guard so we never run two heavy snapshots at once.
+_save_all_thread = None
+_save_all_lock = threading.Lock()
+
+# Asset keys (besides the 8 major currencies) whose scores are tracked.
+NON_FOREX_ASSET_KEYS = [
+    'XAU/USD', 'XAG/USD', 'BTC/USD', 'ETH/USD',
+    'USOIL/USD', 'SPX500/USD', 'NAS100/USD',
+]
 
 
 class UpdateIndicatorView(APIView):
@@ -329,11 +340,6 @@ class RefreshEconomicStrengthView(APIView):
 class SaveScoreHistoryView(APIView):
     permission_classes = [IsAuthenticated, IsAdminUser]
 
-    NON_FOREX_ASSETS = [
-        'XAU/USD', 'XAG/USD', 'BTC/USD', 'ETH/USD',
-        'USOIL/USD', 'SPX500/USD', 'NAS100/USD',
-    ]
-
     def _save_one(self, score_type, key):
         today = datetime.now().strftime('%Y-%m-%d')
         if score_type == 'forex':
@@ -350,33 +356,32 @@ class SaveScoreHistoryView(APIView):
 
     def post(self, request):
         """Save the current overall score for one market or for ALL markets at
-        once (send {"all": true} to save every asset and forex pair)."""
+        once. Saving all is heavy (it recomputes 42 scorecards), so it runs in
+        a background thread and the request returns immediately."""
         try:
             if request.data.get('all'):
-                today = datetime.now().strftime('%Y-%m-%d')
-                saved = 0
-                failures = []
-                # Assets: the 8 major currencies + metals/crypto/indices/oil.
-                asset_keys = list(STANDARD_CURRENCIES) + list(self.NON_FOREX_ASSETS)
-                for key in asset_keys:
-                    try:
-                        _, score, _ = self._save_one('asset', key)
-                        saved += 1
-                    except Exception as e:  # noqa: BLE001
-                        failures.append(f"{key} ({e})")
-                for pair in FOREX_PAIRS:
-                    try:
-                        _, score, _ = self._save_one('forex', pair)
-                        saved += 1
-                    except Exception as e:  # noqa: BLE001
-                        failures.append(f"{pair} ({e})")
+                global _save_all_thread
+                with _save_all_lock:
+                    if _save_all_thread is not None and _save_all_thread.is_alive():
+                        return Response(
+                            {'message': 'A save-all is already running. Please wait for it to finish.'},
+                            status=202,
+                        )
+                    _save_all_thread = threading.Thread(
+                        target=_save_all_score_histories,
+                        name="save-all-score-histories",
+                        daemon=True,
+                    )
+                    _save_all_thread.start()
 
-                cache.clear()
-                total = len(asset_keys) + len(FOREX_PAIRS)
-                message = f'Saved {saved} of {total} score histories for {today}.'
-                if failures:
-                    message += f' Failed ({len(failures)}): ' + '; '.join(failures[:10])
-                return Response({'message': message, 'saved': saved, 'failed': failures})
+                return Response(
+                    {
+                        'message': 'Started saving all score histories in the background. '
+                                   'It may take a minute or two — refresh the scorecard pages afterwards.',
+                        'started': True,
+                    },
+                    status=202,
+                )
 
             # Single save path
             score_type = (request.data.get('type') or '').lower()
@@ -395,6 +400,51 @@ class SaveScoreHistoryView(APIView):
         except Exception as e:
             logger.error(f"Save score history failed: {e}")
             return Response({'error': f'Failed to save score history: {e}'}, status=500)
+
+
+def _save_all_score_histories():
+    """Snapshot today's score for every currency, asset and forex pair."""
+    today = datetime.now().strftime('%Y-%m-%d')
+    saved = 0
+    failures = []
+
+    def save_one(score_type, key):
+        try:
+            if score_type == 'forex':
+                score = int(analyzer.get_forex_scorecard(key).get('overall', 0))
+                turso_client.save_forex_score(key, score, today)
+            else:
+                score = int(analyzer.get_asset_scorecard(key).get('overall_score', 0))
+                turso_client.save_asset_score(key, score, today)
+            return True, None
+        except Exception as e:  # noqa: BLE001
+            return False, str(e)
+
+    asset_keys = list(STANDARD_CURRENCIES) + list(NON_FOREX_ASSET_KEYS)
+    for key in asset_keys:
+        ok, err = save_one('asset', key)
+        if ok:
+            saved += 1
+        else:
+            failures.append(f'{key} ({err})')
+
+    for pair in FOREX_PAIRS:
+        ok, err = save_one('forex', pair)
+        if ok:
+            saved += 1
+        else:
+            failures.append(f'{pair} ({err})')
+
+    total = len(asset_keys) + len(FOREX_PAIRS)
+    try:
+        cache.clear()
+    except Exception:  # noqa: BLE001
+        pass
+
+    summary = f'Saved {saved} of {total} score histories for {today}.'
+    if failures:
+        summary += f' Failed ({len(failures)}): ' + '; '.join(failures[:10])
+    logger.info(f"Save-all score histories: {summary}")
 
 
 class RefreshPutCallView(APIView):
