@@ -39,6 +39,7 @@ from .views.admin import (
     UnpauseUserView,
     RefreshAllIndicatorsView,
     RefreshEconomicStrengthView,
+    SaveScoreHistoryView,
 )
 from django.http import JsonResponse
 
@@ -92,4 +93,5 @@ urlpatterns += [
     path('admin/users/<str:user_id>/unpause/', UnpauseUserView.as_view(), name='unpause_user'),
     path('admin/refresh-all-indicators/', RefreshAllIndicatorsView.as_view(), name='refresh_all_indicators'),
     path('admin/refresh-economic-strength/', RefreshEconomicStrengthView.as_view(), name='refresh_economic_strength'),
+    path('admin/save-score-history/', SaveScoreHistoryView.as_view(), name='save_score_history'),
 ]

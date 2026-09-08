@@ -26,6 +26,33 @@ const SCORING_EXCLUDED_INDICATORS = {
 
 const CURRENCIES = ['USD', 'EUR', 'GBP', 'AUD', 'CAD', 'NZD', 'CHF', 'JPY'];
 
+const ASSET_OPTIONS = [
+  { value: 'USD', label: 'US Dollar' },
+  { value: 'EUR', label: 'Euro' },
+  { value: 'GBP', label: 'British Pound' },
+  { value: 'JPY', label: 'Japanese Yen' },
+  { value: 'AUD', label: 'Australian Dollar' },
+  { value: 'CAD', label: 'Canadian Dollar' },
+  { value: 'CHF', label: 'Swiss Franc' },
+  { value: 'NZD', label: 'New Zealand Dollar' },
+  { value: 'XAU/USD', label: 'Gold' },
+  { value: 'XAG/USD', label: 'Silver' },
+  { value: 'BTC/USD', label: 'Bitcoin' },
+  { value: 'ETH/USD', label: 'Ethereum' },
+  { value: 'USOIL/USD', label: 'US Oil' },
+  { value: 'SPX500/USD', label: 'S&P 500' },
+  { value: 'NAS100/USD', label: 'Nasdaq' },
+];
+
+const FOREX_PAIRS = [
+  'AUD/CAD', 'AUD/CHF', 'AUD/JPY', 'AUD/NZD', 'AUD/USD',
+  'CAD/CHF', 'CAD/JPY', 'CHF/JPY', 'EUR/AUD', 'EUR/CAD',
+  'EUR/CHF', 'EUR/GBP', 'EUR/JPY', 'EUR/NZD', 'EUR/USD',
+  'GBP/AUD', 'GBP/CAD', 'GBP/CHF', 'GBP/JPY', 'GBP/NZD',
+  'GBP/USD', 'NZD/CAD', 'NZD/CHF', 'NZD/JPY', 'NZD/USD',
+  'USD/CAD', 'USD/CHF', 'USD/JPY',
+];
+
 const getIndicatorsForCurrency = (currency) => {
   const base = [...CORE_INDICATORS, ...SCORING_ONLY_INDICATORS];
   const extras = EXTRA_INDICATORS[currency] || [];
@@ -76,6 +103,11 @@ const DataUpdates = () => {
     interest_rate: 0,
     cpi_yoy: 0,
   });
+
+  // Score history form
+  const [scoreType, setScoreType] = useState('asset'); // 'asset' | 'forex'
+  const [scoreAsset, setScoreAsset] = useState('USD');
+  const [scorePair, setScorePair] = useState('EUR/USD');
 
   // ---------- Mutations ----------
   const updateIndicator = useMutation({
@@ -163,6 +195,15 @@ const DataUpdates = () => {
     onError: (error) => alert(`Error: ${error.response?.data?.error || error.message}`),
   });
 
+  const saveScoreHistory = useMutation({
+    mutationFn: ({ type, key }) => api.post('/admin/save-score-history/', { type, key }),
+    onSuccess: (response) => {
+      alert(response.data.message);
+      resetData();
+    },
+    onError: (error) => alert(`Error: ${error.response?.data?.error || error.message}`),
+  });
+
   // ---------- Form handlers ----------
   const handleIndicatorSubmit = (e) => {
     e.preventDefault();
@@ -240,6 +281,14 @@ const DataUpdates = () => {
           }`}
         >
           Put-Call Ratio
+        </button>
+        <button
+          onClick={() => setActiveTab('history')}
+          className={`px-4 py-2 rounded ${
+            activeTab === 'history' ? 'bg-dark-300 text-white' : 'bg-dark-200 text-gray-400'
+          }`}
+        >
+          Save Score History
         </button>
         <button
           onClick={() => setActiveTab('cache')}
@@ -573,6 +622,84 @@ const DataUpdates = () => {
               disabled={refreshPutCall.isPending}
             >
               {refreshPutCall.isPending ? 'Refreshing...' : 'Refresh All'}
+            </button>
+          </div>
+        )}
+
+        {/* --- Save Score History Tab --- */}
+        {activeTab === 'history' && (
+          <div>
+            <h3 className="text-lg font-semibold mb-4">Save Score History</h3>
+            <p className="text-gray-400 mb-4">
+              Saves the current overall MacroPulse score for the selected market into its
+              history table, so the Scorecard history charts accumulate a new daily point.
+            </p>
+
+            <div className="mb-4">
+              <label className="block text-gray-400 text-sm mb-1">Type</label>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setScoreType('asset')}
+                  className={`px-4 py-2 rounded text-sm ${
+                    scoreType === 'asset'
+                      ? 'bg-green-600 text-white'
+                      : 'bg-dark-300 text-gray-400 border border-dark-400'
+                  }`}
+                >
+                  Asset / Currency
+                </button>
+                <button
+                  onClick={() => setScoreType('forex')}
+                  className={`px-4 py-2 rounded text-sm ${
+                    scoreType === 'forex'
+                      ? 'bg-green-600 text-white'
+                      : 'bg-dark-300 text-gray-400 border border-dark-400'
+                  }`}
+                >
+                  Forex Pair
+                </button>
+              </div>
+            </div>
+
+            {scoreType === 'asset' ? (
+              <div className="mb-4">
+                <label className="block text-gray-400 text-sm mb-1">Asset / Currency</label>
+                <select
+                  value={scoreAsset}
+                  onChange={(e) => setScoreAsset(e.target.value)}
+                  className="w-full max-w-sm bg-dark-300 border border-dark-400 rounded px-3 py-2 text-white"
+                >
+                  {ASSET_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
+              </div>
+            ) : (
+              <div className="mb-4">
+                <label className="block text-gray-400 text-sm mb-1">Forex Pair</label>
+                <select
+                  value={scorePair}
+                  onChange={(e) => setScorePair(e.target.value)}
+                  className="w-full max-w-sm bg-dark-300 border border-dark-400 rounded px-3 py-2 text-white"
+                >
+                  {FOREX_PAIRS.map((pair) => (
+                    <option key={pair} value={pair}>{pair}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            <button
+              onClick={() =>
+                saveScoreHistory.mutate({
+                  type: scoreType,
+                  key: scoreType === 'asset' ? scoreAsset : scorePair,
+                })
+              }
+              disabled={saveScoreHistory.isPending}
+              className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded transition disabled:opacity-50"
+            >
+              {saveScoreHistory.isPending ? 'Saving...' : "Save Today's Score"}
             </button>
           </div>
         )}

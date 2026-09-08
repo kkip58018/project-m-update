@@ -326,6 +326,52 @@ class RefreshEconomicStrengthView(APIView):
             return Response({'error': str(e)}, status=500)
 
 
+class SaveScoreHistoryView(APIView):
+    permission_classes = [IsAuthenticated, IsAdminUser]
+
+    def post(self, request):
+        """Persist the current overall score for an asset or forex pair to its
+        history table (turso), so the Scorecard history charts accumulate data."""
+        score_type = (request.data.get('type') or '').lower()
+        key = (request.data.get('key') or '').strip().upper()
+
+        if score_type not in ('asset', 'forex') or not key:
+            return Response(
+                {'error': 'type (asset or forex) and key are required'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            if score_type == 'forex':
+                if key not in FOREX_PAIRS:
+                    return Response(
+                        {'error': f'{key} is not a supported forex pair'},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                scorecard = analyzer.get_forex_scorecard(key)
+                score = int(scorecard.get('overall', 0))
+                today = datetime.now().strftime('%Y-%m-%d')
+                ok = turso_client.save_forex_score(key, score, today)
+            else:
+                scorecard = analyzer.get_asset_scorecard(key)
+                score = int(scorecard.get('overall_score', 0))
+                today = datetime.now().strftime('%Y-%m-%d')
+                ok = turso_client.save_asset_score(key, score, today)
+        except ValueError as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            logger.error(f"Save score history failed: {e}")
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        cache.clear()
+        if not ok:
+            return Response(
+                {'error': 'Failed to write score history to Turso'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+        return Response({'message': f'Score history saved for {key}: {score} on {today}'})
+
+
 class RefreshPutCallView(APIView):
     permission_classes = [IsAuthenticated, IsAdminUser]
 

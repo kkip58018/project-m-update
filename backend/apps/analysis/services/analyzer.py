@@ -274,20 +274,21 @@ class Analyzer:
         return growth + jobs + inflation + bond
 
     def _get_cot_score_for_asset(self, asset: str) -> int:
-        """Return COT score for a single asset (net positioning + change)."""
+        """Return COT score for a single asset (net positioning + change).
+
+        Uses the same ±1 net-positioning tiers as forex pairs so the component
+        stays within [-2, 2] (pos -1/0/1 + change -1/0/1).  Without this, an
+        extreme net position (>=60) plus a positive change produced a score of 3.
+        """
         current = self.cot.get_current()
         previous = self.cot.get_previous()
         if asset not in current:
             return 0
         cur_long = current[asset]
         cur_net = cur_long - (100 - cur_long)
-        # Net positioning score
-        if cur_net >= 60:
-            pos = 2
-        elif cur_net >= 20:
+        # Net positioning score (range -1..1, consistent with forex pairs)
+        if cur_net >= 20:
             pos = 1
-        elif cur_net <= -60:
-            pos = -2
         elif cur_net <= -20:
             pos = -1
         else:
