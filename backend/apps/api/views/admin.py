@@ -308,6 +308,24 @@ class RefreshRetailSentimentView(APIView):
             logger.error(f"Refresh retail sentiment failed: {e}")
             return Response({'error': str(e)}, status=500)
         
+class RefreshEconomicStrengthView(APIView):
+    permission_classes = [IsAuthenticated, IsAdminUser]
+
+    def post(self, request):
+        try:
+            result = analyzer.econ_strength.refresh_from_sources()
+            reload_analyzer()
+            cache.clear()
+            return Response({
+                'message': f'Economic strength refreshed ({result["updated"]} currencies)',
+                'updated': result['updated'],
+                'details': result['details'],
+            })
+        except Exception as e:
+            logger.error(f"Refresh economic strength failed: {e}")
+            return Response({'error': str(e)}, status=500)
+
+
 class RefreshPutCallView(APIView):
     permission_classes = [IsAuthenticated, IsAdminUser]
 

@@ -38,6 +38,7 @@ from .views.admin import (
     PauseUserView,
     UnpauseUserView,
     RefreshAllIndicatorsView,
+    RefreshEconomicStrengthView,
 )
 from django.http import JsonResponse
 
@@ -90,4 +91,5 @@ urlpatterns += [
     path('admin/users/<str:user_id>/pause/', PauseUserView.as_view(), name='pause_user'),
     path('admin/users/<str:user_id>/unpause/', UnpauseUserView.as_view(), name='unpause_user'),
     path('admin/refresh-all-indicators/', RefreshAllIndicatorsView.as_view(), name='refresh_all_indicators'),
+    path('admin/refresh-economic-strength/', RefreshEconomicStrengthView.as_view(), name='refresh_economic_strength'),
 ]

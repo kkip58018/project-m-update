@@ -1,12 +1,37 @@
-import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { analysis } from '../../api/endpoints';
+import api from '../../api/client';
+import { useAuth } from '../../context/AuthContext';
+import { resetQueryCaches } from '../../utils/reactQuery';
 import { Globe } from 'lucide-react'
 
 const EconomicStrength = () => {
+  const { isAdmin } = useAuth();
+  const queryClient = useQueryClient();
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
   const { data, isLoading, error } = useQuery({
     queryKey: ['economicStrength'],
     queryFn: () => analysis.getEconomicStrength().then(res => res.data),
   });
+
+  const handleRefresh = async () => {
+    if (!isAdmin) return;
+    setIsRefreshing(true);
+    try {
+      const response = await api.post('/admin/refresh-economic-strength/');
+      // Backend updates the DB, reloads the analyzer and clears its cache; reset
+      // the client cache so this table refetches the fresh values immediately.
+      resetQueryCaches(queryClient);
+      const details = (response.data.details || []).join('\n');
+      alert(`Economic strength refreshed successfully!\n\n${details}`);
+    } catch (err) {
+      alert(`Refresh failed: ${err.response?.data?.error || err.message}`);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   if (isLoading) return <div className="text-gray-400">Loading...</div>;
   if (error) return <div className="text-red-400">Error loading data</div>;
@@ -14,16 +39,27 @@ const EconomicStrength = () => {
 
   return (
     <div>
-      <div className="flex items-center gap-2 mb-4">
-        <h2 className="text-2xl font-bold mb-2 text-white flex items-center gap-2"><Globe className="w-6 h-6" />  Economic Strength Index</h2>
-        <div className="relative group cursor-help">
-          <span className="inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-gray-400 border border-dark-400 rounded-full hover:border-dark-300 transition-colors">ℹ️</span>
-          <div className="absolute left-0 top-8 w-80 bg-dark-200 border border-dark-300 rounded-lg p-3 text-xs text-gray-300 z-10 hidden group-hover:block">
-            <p className="font-semibold text-white mb-1">How it works</p>
-            <p>Combines GDP, Unemployment, Interest Rate, CPI, and Real Yield into a 0-100 score. Higher = stronger economy.</p>
-            <p className="mt-1 text-gray-500">Δ Score and Δ Real Yield show change from previous update.</p>
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <h2 className="text-2xl font-bold text-white flex items-center gap-2"><Globe className="w-6 h-6" />  Economic Strength Index</h2>
+          <div className="relative group cursor-help">
+            <span className="inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-gray-400 border border-dark-400 rounded-full hover:border-dark-300 transition-colors">ℹ️</span>
+            <div className="absolute left-0 top-8 w-80 bg-dark-200 border border-dark-300 rounded-lg p-3 text-xs text-gray-300 z-10 hidden group-hover:block">
+              <p className="font-semibold text-white mb-1">How it works</p>
+              <p>Combines GDP, Unemployment, Interest Rate, CPI, and Real Yield into a 0-100 score. Higher = stronger economy.</p>
+              <p className="mt-1 text-gray-500">Refresh pulls live central-bank rates and the latest indicator actuals from the database, then recomputes each score.</p>
+            </div>
           </div>
         </div>
+        {isAdmin && (
+          <button
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            className="bg-dark-300 hover:bg-dark-400 text-white border border-dark-400 rounded px-4 py-1.5 text-sm transition w-[220px] disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isRefreshing ? '⏳ Refreshing...' : '🔄 Refresh'}
+          </button>
+        )}
       </div>
       <p className="text-gray-400 mb-6">Long‑term fundamental ranking based on latest data.</p>
 
