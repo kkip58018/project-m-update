@@ -93,14 +93,21 @@ class TursoClient:
                     raise
 
     def query(self, sql: str, params: Optional[List[Any]] = None) -> List[Dict]:
-        """Convenience method with typed params."""
+        """Convenience method with typed params.
+
+        Note: the Turso /v2/pipeline API is picky about arg encodings:
+        text/integer values must be STRINGS, while float values must be JSON
+        numbers.  Sending the wrong encoding returns HTTP 400.
+        """
         args = []
         if params:
             for p in params:
-                if isinstance(p, str):
-                    args.append({"type": "text", "value": p})
-                elif isinstance(p, (int, float)):
-                    args.append({"type": "float" if isinstance(p, float) else "integer", "value": p})
+                if isinstance(p, bool):
+                    args.append({"type": "integer", "value": "1" if p else "0"})
+                elif isinstance(p, float):
+                    args.append({"type": "float", "value": p})
+                elif isinstance(p, int):
+                    args.append({"type": "integer", "value": str(p)})
                 else:
                     args.append({"type": "text", "value": str(p)})
         return self._execute(sql, args)
