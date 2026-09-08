@@ -90,9 +90,9 @@ class EconomicStrengthService:
         * GDP Growth      -> latest 'GDP' actual  from the indicators DB
         * Unemployment    -> latest 'Unemployment Rate' actual from the indicators DB
         * CPI YoY         -> latest 'CPI YoY' actual from the indicators DB
+        * Real Yield      -> Interest Rate - CPI YoY
         * Score           -> recomputed 0-100 strength score
 
-        Real Yield is kept from the previously stored row (it has no live feed yet).
         Returns {'updated': int, 'details': [str]}.
         """
         try:
@@ -128,10 +128,14 @@ class EconomicStrengthService:
             if cpi is None:
                 cpi = _to_float(row.get("cpi_yoy"))
 
-            # Keep the stored real yield when present.
-            real_yield = _to_float(row.get("real_yield"))
-            if real_yield is None:
-                real_yield = 0.0
+            # Real yield is approximated automatically as nominal policy rate
+            # minus CPI YoY (no separate feed for it yet).
+            prev_real_yield = _to_float(row.get("real_yield")) or 0.0
+            if cpi is not None:
+                real_yield = round(rate - cpi, 2)
+            else:
+                real_yield = prev_real_yield
+            delta_real_yield = round(real_yield - prev_real_yield, 2)
 
             prev_score = _to_float(row.get("relative_strength_score"))
             new_score = self.calculate_score(
@@ -160,7 +164,7 @@ class EconomicStrengthService:
                 "bias": bias,
                 "relative_strength_score": new_score,
                 "delta_score": delta_score,
-                "delta_real_yield": row.get("delta_real_yield", 0.0),
+                "delta_real_yield": delta_real_yield,
             }
             if supabase_client.upsert_economic_strength(payload):
                 updated += 1
@@ -168,7 +172,8 @@ class EconomicStrengthService:
                 src.append(f"GDP={payload['gdp_growth']:.2f}" if gdp is not None else "GDP=n/a")
                 src.append(f"Unemp={payload['unemployment_rate']:.2f}")
                 src.append(f"Rate={rate:.2f}")
-                src.append(f"CPI={payload['cpi_yoy']:.2f}")
+                src.append(f"CPI={payload['cpi_yoy']:.2f}" if cpi is not None else "CPI=n/a")
+                src.append(f"RealYield={real_yield:.2f}")
                 details.append(f"{currency}: {', '.join(src)} score={new_score} ({bias})")
             else:
                 details.append(f"{currency}: DB upsert failed")
