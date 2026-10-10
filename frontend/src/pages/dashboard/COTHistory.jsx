@@ -25,7 +25,7 @@ const COTHistory = () => {
   const maxContracts = Math.max(...total) * 1.1 || 100;
 
   const assetMaxMap = {
-    'AUD': 225000,
+    'AUD': 250000,
     'CAD': 250000,
     'BTC': 70000,
     'CHF': 80000,
