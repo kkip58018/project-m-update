@@ -59,7 +59,6 @@ const TopSetups = () => {
   if (isLoading) return <div className="text-gray-400">Loading...</div>;
   if (error) return <div className="text-red-400">Error loading data</div>;
 
-  // Guard: ensure data is an array
   const itemsData = Array.isArray(data) ? data : (data?.data || []);
   if (itemsData.length === 0) return <div className="text-gray-400">No data available</div>;
 
@@ -84,9 +83,7 @@ const TopSetups = () => {
   const paginatedItems = items.slice(0, visibleCount);
   const hasMore = items.length > visibleCount;
 
-  const loadMore = () => {
-    setVisibleCount(prev => prev + PAGE_SIZE);
-  };
+  const loadMore = () => setVisibleCount(prev => prev + PAGE_SIZE);
 
   return (
     <div>
@@ -112,25 +109,27 @@ const TopSetups = () => {
           </select>
         </div>
       </div>
-      <div className="overflow-auto max-h-[70vh] bg-dark-200 rounded-lg border border-dark-300">
+
+      {/* Scroll container: h-fit prevents the box from stretching in a flex/grid parent (the "gap below table"). */}
+      <div className="h-fit overflow-auto max-h-[70vh] bg-dark-200 rounded-lg border border-dark-300">
         <table className="w-full text-left text-sm">
           <thead>
-            <tr className="bg-dark-300 text-gray-400 uppercase text-xs">
+            <tr className="text-gray-400 uppercase text-xs">
               {groups.map((group) => (
                 <th
                   key={group.label}
                   colSpan={group.columns.length}
-                  className="sticky top-0 z-20 h-8 whitespace-nowrap bg-dark-300 px-3 py-1 text-center border-b border-dark-400"
+                  className="sticky top-0 z-20 h-8 whitespace-nowrap bg-dark-300 px-3 py-1 text-center shadow-[inset_0_-1px_0_#334155]"
                 >
                   {group.label}
                 </th>
               ))}
             </tr>
-            <tr className="bg-dark-300 text-gray-400 uppercase text-xs">
+            <tr className="text-gray-400 uppercase text-xs">
               {columns.map((col) => (
                 <th
                   key={col}
-                  className="sticky top-8 z-10 bg-dark-300 px-3 py-2 whitespace-nowrap"
+                  className="sticky top-8 z-10 bg-dark-300 px-3 py-2 whitespace-nowrap shadow-[inset_0_-1px_0_#334155]"
                 >
                   {columnLabels[col] || col}
                 </th>
