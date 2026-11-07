@@ -27,7 +27,7 @@ const ForexScorecard = () => {
   if (!data) return <div className="text-gray-400">No data</div>;
 
   const { overall, bias, components, history } = data;
-  const historyData = history || [];
+  const historyData = (history || []).slice(-30);
   const histDates = historyData.map(h => h.date);
   const histScores = historyData.map(h => h.score);
 
