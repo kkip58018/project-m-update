@@ -112,19 +112,28 @@ const TopSetups = () => {
           </select>
         </div>
       </div>
-      <div className="overflow-x-auto bg-dark-200 rounded-lg border border-dark-300">
+      <div className="overflow-auto max-h-[70vh] bg-dark-200 rounded-lg border border-dark-300">
         <table className="w-full text-left text-sm">
           <thead>
             <tr className="bg-dark-300 text-gray-400 uppercase text-xs">
               {groups.map((group) => (
-                <th key={group.label} colSpan={group.columns.length} className="px-3 py-1 text-center border-b border-dark-400">
+                <th
+                  key={group.label}
+                  colSpan={group.columns.length}
+                  className="sticky top-0 z-20 h-8 whitespace-nowrap bg-dark-300 px-3 py-1 text-center border-b border-dark-400"
+                >
                   {group.label}
                 </th>
               ))}
             </tr>
             <tr className="bg-dark-300 text-gray-400 uppercase text-xs">
               {columns.map((col) => (
-                <th key={col} className="px-3 py-2 whitespace-nowrap">{columnLabels[col] || col}</th>
+                <th
+                  key={col}
+                  className="sticky top-8 z-10 bg-dark-300 px-3 py-2 whitespace-nowrap"
+                >
+                  {columnLabels[col] || col}
+                </th>
               ))}
             </tr>
           </thead>
