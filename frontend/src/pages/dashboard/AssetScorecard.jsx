@@ -36,7 +36,7 @@ const AssetScorecard = () => {
   if (error) return <div className="text-red-400">Error loading asset data</div>;
   if (!data) return <div className="text-gray-400">No data</div>;
 
-  const history = data.history || [];
+  const history = (history || []).slice(-30);
   const historyDates = history.map(h => h.date);
   const historyScores = history.map(h => h.score);
 
