@@ -87,7 +87,7 @@ const ForexScorecard = () => {
                   x: histDates,
                   y: histScores,
                   marker: {
-                    color: histScores.map(s => s > 5 ? '#00ff88' : s < -5 ? '#ff4b4b' : '#EDEBEB')
+                    color: histScores.map(s => s >= 5 ? '#00ff88' : s <= -5 ? '#ff4b4b' : '#EDEBEB')
                   },
                 }]}
                 layout={{
