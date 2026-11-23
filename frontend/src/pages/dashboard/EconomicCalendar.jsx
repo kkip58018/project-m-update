@@ -18,7 +18,7 @@ export default function EconomicCalendar() {
     // Set height to "650" instead of "100%" to force the widget to fill the space
     script.textContent = JSON.stringify({
       width: '100%',
-      height: '800', 
+      height: '850', 
       mode: '2',
       fw: 'react',
       theme: 1,
@@ -51,7 +51,7 @@ export default function EconomicCalendar() {
       <div 
         ref={container} 
         className="tradays-widget-container"
-        style={{ width: '100%', height: '800px', backgroundColor: 'transparent' }}
+        style={{ width: '100%', height: '850px', backgroundColor: 'transparent' }}
       ></div>
       
       <div className="text-sm text-gray-400 mt-2 hover:text-white transition">
