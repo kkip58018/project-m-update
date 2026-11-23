@@ -40,20 +40,30 @@ const PAIRS = Object.keys(PIP_VALUES);
 const formatPair = (pair) => `${pair.slice(0, 3)}/${pair.slice(3)}`;
 
 const DEFAULTS = {
-  accountBalance: 10000,
-  riskPercent: 0.5,
+  accountBalance: '10000',
+  riskPercent: '0.5',
   pair: 'EURUSD',
-  stopLossPips: 50,
+  stopLossPips: '50',
+};
+
+const FIELD_LABELS = {
+  accountBalance: 'Account Balance',
+  riskPercent: 'Risk per Trade',
+  stopLossPips: 'Stop Loss',
 };
 
 const PositionSizeCalculator = () => {
   const navigate = useNavigate();
 
-  // Input states
+  // Input states stored as strings so fields can be left empty
   const [accountBalance, setAccountBalance] = useState(DEFAULTS.accountBalance);
   const [riskPercent, setRiskPercent] = useState(DEFAULTS.riskPercent);
   const [pair, setPair] = useState(DEFAULTS.pair);
   const [stopLossPips, setStopLossPips] = useState(DEFAULTS.stopLossPips);
+
+  // Validation state
+  const [error, setError] = useState('');
+  const [invalidFields, setInvalidFields] = useState([]);
 
   // Result states
   const [riskAmount, setRiskAmount] = useState(0);
@@ -64,13 +74,61 @@ const PositionSizeCalculator = () => {
   // Pip value is derived from the selected pair
   const pipValue = PIP_VALUES[pair] ?? 0;
 
+  // Clear validation feedback as soon as the user starts editing
+  const handleInputChange = (setter) => (e) => {
+    setter(e.target.value);
+    if (error) setError('');
+    if (invalidFields.length) setInvalidFields([]);
+  };
+
+  const clearResults = () => {
+    setRiskAmount(0);
+    setPositionSizeLots(0);
+    setPositionSizeUnits(0);
+    setCalculatedPipValue(null);
+  };
+
   const calculate = () => {
-    const risk = (accountBalance * riskPercent) / 100;
+    const errors = [];
+    const invalid = [];
+
+    const fields = [
+      { key: 'accountBalance', value: accountBalance },
+      { key: 'riskPercent', value: riskPercent },
+      { key: 'stopLossPips', value: stopLossPips },
+    ];
+
+    fields.forEach(({ key, value }) => {
+      const trimmed = String(value).trim();
+      if (trimmed === '') {
+        errors.push(`${FIELD_LABELS[key]} is required.`);
+        invalid.push(key);
+      } else if (isNaN(parseFloat(trimmed))) {
+        errors.push(`${FIELD_LABELS[key]} must be a valid number.`);
+        invalid.push(key);
+      }
+    });
+
+    setInvalidFields(invalid);
+
+    if (errors.length > 0) {
+      setError(errors.join(' '));
+      clearResults();
+      return;
+    }
+
+    setError('');
+
+    const balance = parseFloat(accountBalance);
+    const riskPct = parseFloat(riskPercent);
+    const slPips = parseFloat(stopLossPips);
+
+    const risk = (balance * riskPct) / 100;
     setRiskAmount(risk);
     setCalculatedPipValue(pipValue);
 
-    if (stopLossPips > 0 && pipValue > 0) {
-      const lots = risk / (stopLossPips * pipValue);
+    if (slPips > 0 && pipValue > 0) {
+      const lots = risk / (slPips * pipValue);
       setPositionSizeLots(lots);
       setPositionSizeUnits(lots * 100000);
     } else {
@@ -84,11 +142,15 @@ const PositionSizeCalculator = () => {
     setRiskPercent(DEFAULTS.riskPercent);
     setPair(DEFAULTS.pair);
     setStopLossPips(DEFAULTS.stopLossPips);
-    setRiskAmount(0);
-    setPositionSizeLots(0);
-    setPositionSizeUnits(0);
-    setCalculatedPipValue(null);
+    setError('');
+    setInvalidFields([]);
+    clearResults();
   };
+
+  const fieldClass = (key) =>
+    `w-full bg-dark-300 border rounded px-3 py-2 text-white ${
+      invalidFields.includes(key) ? 'border-red-500' : 'border-dark-400'
+    }`;
 
   return (
     <div className="min-h-screen bg-dark-100 text-white">
@@ -134,10 +196,11 @@ const PositionSizeCalculator = () => {
               <input
                 type="number"
                 value={accountBalance}
-                onChange={(e) => setAccountBalance(parseFloat(e.target.value) || 0)}
-                className="w-full bg-dark-300 border border-dark-400 rounded px-3 py-2 text-white"
+                onChange={handleInputChange(setAccountBalance)}
+                className={fieldClass('accountBalance')}
                 min="0"
                 step="100"
+                placeholder="e.g. 10000"
               />
             </div>
             <div>
@@ -145,10 +208,11 @@ const PositionSizeCalculator = () => {
               <input
                 type="number"
                 value={riskPercent}
-                onChange={(e) => setRiskPercent(parseFloat(e.target.value) || 0)}
-                className="w-full bg-dark-300 border border-dark-400 rounded px-3 py-2 text-white"
+                onChange={handleInputChange(setRiskPercent)}
+                className={fieldClass('riskPercent')}
                 min="0"
                 step="0.1"
+                placeholder="e.g. 0.5"
               />
             </div>
             <div>
@@ -173,13 +237,20 @@ const PositionSizeCalculator = () => {
               <input
                 type="number"
                 value={stopLossPips}
-                onChange={(e) => setStopLossPips(parseFloat(e.target.value) || 0)}
-                className="w-full bg-dark-300 border border-dark-400 rounded px-3 py-2 text-white"
+                onChange={handleInputChange(setStopLossPips)}
+                className={fieldClass('stopLossPips')}
                 min="0"
                 step="1"
+                placeholder="e.g. 50"
               />
             </div>
           </div>
+
+          {error && (
+            <div className="bg-red-500/10 border border-red-500/50 text-red-400 text-sm rounded-lg px-4 py-3">
+              {error}
+            </div>
+          )}
 
           <div className="flex gap-4 pt-2">
             <button
