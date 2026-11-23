@@ -55,23 +55,23 @@ const MonthlySeasonality = () => {
       textposition: 'outside',
       textfont: { color: 'white', size: 10 },
     },
-    ...(lineMonths.length > 0 && lineYtd.some(v => v !== null) ? [{
-      type: 'scatter',
-      mode: 'lines+markers',
-      x: lineMonths,
-      y: lineYtd,
-      name: 'This Year (YTD)',
-      line: {
-        color: '#ffffff',
-        width: 2,
-        dash: 'dot',
-        shape: 'spline',
-      },
-      marker: { color: '#ffffff', size: 6 },
-      text: lineYtd.map(v => v !== null ? v.toFixed(2) + '%' : ''),
-      textposition: 'top center',
-      textfont: { color: 'white', size: 9 },
-    }] : []),
+    // ...(lineMonths.length > 0 && lineYtd.some(v => v !== null) ? [{
+    //   type: 'scatter',
+    //   mode: 'lines+markers',
+    //   x: lineMonths,
+    //   y: lineYtd,
+    //   name: 'This Year (YTD)',
+    //   line: {
+    //     color: '#ffffff',
+    //     width: 2,
+    //     dash: 'dot',
+    //     shape: 'spline',
+    //   },
+    //   marker: { color: '#ffffff', size: 6 },
+    //   text: lineYtd.map(v => v !== null ? v.toFixed(2) + '%' : ''),
+    //   textposition: 'top center',
+    //   textfont: { color: 'white', size: 9 },
+    // }] : []),
   ];
 
   const layout = {
