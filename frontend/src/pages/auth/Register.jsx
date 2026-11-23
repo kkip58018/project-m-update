@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { Link, useNavigate } from 'react-router-dom';
-import { Home } from 'lucide-react';
+import { Home, Loader2 } from 'lucide-react';
 
 const Register = () => {
   const [email, setEmail] = useState('');
@@ -9,11 +9,13 @@ const Register = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+  const [loading, setLoading] = useState(false);
   const { signUp } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (loading) return;
     setError('');
     setSuccess(false);
 
@@ -22,14 +24,22 @@ const Register = () => {
       return;
     }
 
+    setLoading(true);
     try {
       await signUp(email, password);
       setSuccess(true);
+      // keep `loading` true through the redirect so the spinner persists
       setTimeout(() => navigate('/login'), 3000);
     } catch (err) {
       setError(err.message || 'Failed to sign up');
+      setLoading(false);
     }
   };
+
+  const inputClasses =
+    'w-full bg-dark-300 text-white border border-dark-400 rounded-lg px-4 py-2 ' +
+    'focus:outline-none focus:border-primary transition ' +
+    'disabled:opacity-50 disabled:cursor-not-allowed';
 
   return (
     <div className="min-h-screen bg-dark-100 flex items-center justify-center p-4">
@@ -37,7 +47,8 @@ const Register = () => {
         <div className="flex justify-between items-center mb-6">
           <button
             onClick={() => navigate('/')}
-            className="flex items-center gap-1 text-gray-400 hover:text-white transition text-sm"
+            disabled={loading}
+            className="flex items-center gap-1 text-gray-400 hover:text-white transition text-sm disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Home className="w-4 h-4" />
             <span>Home</span>
@@ -63,7 +74,8 @@ const Register = () => {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full bg-dark-300 text-white border border-dark-400 rounded-lg px-4 py-2 focus:outline-none focus:border-primary"
+              disabled={loading}
+              className={inputClasses}
               required
             />
           </div>
@@ -74,7 +86,8 @@ const Register = () => {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full bg-dark-300 text-white border border-dark-400 rounded-lg px-4 py-2 focus:outline-none focus:border-primary"
+              disabled={loading}
+              className={inputClasses}
               required
               minLength={6}
             />
@@ -86,22 +99,37 @@ const Register = () => {
               type="password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              className="w-full bg-dark-300 text-white border border-dark-400 rounded-lg px-4 py-2 focus:outline-none focus:border-primary"
+              disabled={loading}
+              className={inputClasses}
               required
             />
           </div>
 
           <button
             type="submit"
-            className="w-full bg-gradient-to-r from-green-400 to-blue-500 text-dark-100 font-bold py-2 rounded-lg hover:opacity-90 transition"
+            disabled={loading}
+            aria-busy={loading}
+            className={`w-full bg-gradient-to-r from-green-400 to-blue-500 text-dark-100 font-bold py-2 rounded-lg
+              flex items-center justify-center gap-2 transition
+              ${loading ? 'opacity-80 cursor-wait' : 'hover:opacity-90'}`}
           >
-            Register
+            {loading ? (
+              <>
+                <Loader2 className="w-5 h-5 animate-spin" />
+                <span>{success ? 'Redirecting...' : 'Creating Account...'}</span>
+              </>
+            ) : (
+              'Register'
+            )}
           </button>
         </form>
 
         <p className="text-center text-gray-400 mt-4">
           Already have an account?{' '}
-          <Link to="/login" className="text-green-400 hover:underline">
+          <Link
+            to="/login"
+            className={`text-green-400 hover:underline ${loading ? 'pointer-events-none opacity-50' : ''}`}
+          >
             Sign In
           </Link>
         </p>
