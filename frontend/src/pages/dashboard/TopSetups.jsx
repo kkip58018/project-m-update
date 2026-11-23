@@ -45,6 +45,39 @@ const groups = [
 
 const PAGE_SIZE = 20;
 
+// Reusable spinner (double-ring animation)
+const Spinner = ({ size = 56 }) => (
+  <div className="relative" style={{ width: size, height: size }}>
+    <div className="absolute inset-0 rounded-full border-4 border-dark-400" />
+    <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-[#00ff88] animate-spin" />
+    <div
+      className="absolute inset-2 rounded-full border-4 border-transparent border-b-[#00ff88]/60 animate-spin"
+      style={{ animationDirection: 'reverse', animationDuration: '1.4s' }}
+    />
+  </div>
+);
+
+// Skeleton rows shown while data loads
+const SkeletonRows = ({ rows = 8 }) => (
+  <>
+    {Array.from({ length: rows }).map((_, r) => (
+      <tr key={r} className="border-b border-dark-300">
+        {columns.map((col, c) => (
+          <td key={col} className="px-3 py-3">
+            <div
+              className="h-3 rounded bg-dark-400/70 animate-pulse"
+              style={{
+                width: `${40 + ((r * 7 + c * 13) % 50)}%`,
+                animationDelay: `${(r * 60 + c * 15)}ms`,
+              }}
+            />
+          </td>
+        ))}
+      </tr>
+    ))}
+  </>
+);
+
 const TopSetups = () => {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('All');
@@ -56,7 +89,45 @@ const TopSetups = () => {
     staleTime: 5 * 60 * 1000,
   });
 
-  if (isLoading) return <div className="text-gray-400">Loading...</div>;
+  if (isLoading) {
+    return (
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+            <Trophy className="w-6 h-6" /> Top Setups
+          </h2>
+        </div>
+        <div className="overflow-x-auto bg-dark-200 rounded-lg border border-dark-300">
+          <table className="w-full text-left text-sm">
+            <thead>
+              <tr className="bg-dark-300 text-gray-400 uppercase text-xs">
+                {groups.map((group) => (
+                  <th key={group.label} colSpan={group.columns.length} className="px-3 py-1 text-center border-b border-dark-400">
+                    {group.label}
+                  </th>
+                ))}
+              </tr>
+              <tr className="bg-dark-300 text-gray-400 uppercase text-xs">
+                {columns.map((col) => (
+                  <th key={col} className="px-3 py-2 whitespace-nowrap">{columnLabels[col] || col}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              <SkeletonRows rows={8} />
+            </tbody>
+          </table>
+          <div className="flex flex-col items-center justify-center py-6 border-t border-dark-300">
+            <Spinner />
+            <p className="mt-3 text-gray-400 text-sm animate-pulse tracking-wide">
+              Loading top setups…
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (error) return <div className="text-red-400">Error loading data</div>;
 
   // Guard: ensure data is an array
