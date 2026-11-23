@@ -14,10 +14,11 @@ export default function EconomicCalendar() {
     script.src = 'https://www.tradays.com/c/js/widgets/calendar/widget.js?v=16';
     script.async = true;
     script.dataset.type = 'calendar-widget-component';
-    // theme: 1 enables dark mode
+    
+    // Set height to "650" instead of "100%" to force the widget to fill the space
     script.textContent = JSON.stringify({
       width: '100%',
-      height: '100%',
+      height: '650', 
       mode: '2',
       fw: 'react',
       theme: 1,
@@ -26,7 +27,6 @@ export default function EconomicCalendar() {
     container.current?.appendChild(script);
 
     return () => {
-      // Cleanup script on unmount
       if (container.current) {
         container.current.innerHTML = '';
       }
@@ -37,13 +37,23 @@ export default function EconomicCalendar() {
     <div>
       <h2 className="text-2xl font-bold text-white mb-4">📅 Economic Calendar</h2>
       
-      {/* The widget needs a defined height to render properly */}
+      {/* 
+        Added a style tag to force the injected iframe to take up 100% of the container.
+      */}
+      <style>{`
+        .tradays-widget-container iframe {
+          width: 100% !important;
+          height: 100% !important;
+          border: none !important;
+        }
+      `}</style>
+
       <div 
         ref={container} 
+        className="tradays-widget-container"
         style={{ width: '100%', height: '650px', backgroundColor: 'transparent' }}
       ></div>
       
-      {/* Styled the copyright to match your original theme */}
       <div className="text-sm text-gray-400 mt-2 hover:text-white transition">
         <a 
           href="https://www.metatrader.com/?utm_source=calendar.widget&utm_medium=link&utm_term=economic.calendar&utm_content=visit.mql5.calendar&utm_campaign=202.calendar.widget" 
