@@ -23,6 +23,57 @@ const ASSET_OPTIONS = [
   { value: 'NAS100/USD', label: 'Nasdaq' },
 ];
 
+// Small reusable pulsing bar
+const SkeletonBlock = ({ className = '' }) => (
+  <div className={`animate-pulse bg-dark-400/70 rounded ${className}`} />
+);
+
+// Table-shaped skeleton rows (header stays static, only rows shimmer)
+const SkeletonTableRows = ({ rows = 3 }) => (
+  <>
+    {Array.from({ length: rows }).map((_, r) => (
+      <tr key={r} className="border-t border-dark-300">
+        <td className="py-2">
+          <SkeletonBlock className="h-3 w-24" />
+        </td>
+        <td className="py-2">
+          <SkeletonBlock className="h-3 w-12 mx-auto" />
+        </td>
+        <td className="py-2">
+          <SkeletonBlock className="h-3 w-10 ml-auto" />
+        </td>
+        <td className="py-2">
+          <SkeletonBlock className="h-3 w-10 ml-auto" />
+        </td>
+        <td className="py-2">
+          <SkeletonBlock className="h-3 w-10 ml-auto" />
+        </td>
+      </tr>
+    ))}
+  </>
+);
+
+// Reusable table panel (real header, skeleton body)
+const SkeletonTablePanel = ({ title }) => (
+  <div className="bg-dark-200 p-4 rounded-lg border border-dark-300">
+    <h3 className="text-sm font-medium text-gray-400 mb-2">{title}</h3>
+    <table className="w-full text-sm">
+      <thead>
+        <tr className="text-gray-500 text-xs">
+          <th className="text-left">Indicator</th>
+          <th className="text-center">Bias</th>
+          <th className="text-right">Actual</th>
+          <th className="text-right">Forecast</th>
+          <th className="text-right">Surprise</th>
+        </tr>
+      </thead>
+      <tbody>
+        <SkeletonTableRows rows={3} />
+      </tbody>
+    </table>
+  </div>
+);
+
 const AssetScorecard = () => {
   const [selectedAsset, setSelectedAsset] = useState('USD');
   const { data, isLoading, isFetching, error } = useQuery({
@@ -32,7 +83,85 @@ const AssetScorecard = () => {
     keepPreviousData: true,
   });
 
-  if (isLoading && !data) return <div className="text-gray-400">Loading...</div>;
+  // ---------- FULL SKELETON LOADING STATE ----------
+  if (isLoading && !data) {
+    return (
+      <div className="text-white">
+        <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+          <ClipboardList className="w-6 h-6" /> Asset Scorecard
+        </h2>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-4">
+          {/* Left column */}
+          <div className="lg:col-span-1 space-y-4">
+            {/* Selector stays interactive while loading */}
+            <select
+              value={selectedAsset}
+              onChange={(e) => setSelectedAsset(e.target.value)}
+              className="w-full bg-dark-300 text-white border border-dark-400 rounded px-3 py-2"
+            >
+              {ASSET_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+
+            {/* Sentiment gauge skeleton (semicircle arc) */}
+            <div className="relative mx-auto w-56 h-28 overflow-hidden">
+              <div className="absolute inset-x-0 top-0 h-56 rounded-full border-[18px] border-dark-400/60 animate-pulse" />
+            </div>
+
+            {/* Score panel skeleton */}
+            <div className="bg-dark-200 p-4 rounded-lg border border-dark-300 space-y-3">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="flex justify-between">
+                  <SkeletonBlock className="h-3 w-32" />
+                  <SkeletonBlock className="h-3 w-8" />
+                </div>
+              ))}
+            </div>
+
+            {/* History chart skeleton (30 pulse bars) */}
+            <div className="bg-dark-200 p-4 rounded-lg border border-dark-300">
+              <SkeletonBlock className="h-3 w-24 mb-3" />
+              <div className="h-[230px] flex items-end gap-1">
+                {Array.from({ length: 30 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="flex-1 bg-dark-400/60 rounded-sm animate-pulse"
+                    style={{
+                      height: `${20 + ((i * 37) % 60)}%`,
+                      animationDelay: `${i * 25}ms`,
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Right column */}
+          <div className="lg:col-span-2 space-y-4">
+            {/* Technicals / Sentiment panels skeleton */}
+            <div className="grid grid-cols-2 gap-4">
+              {['📈 Technicals', '🪙 Sentiment & COT'].map((title) => (
+                <div key={title} className="bg-dark-200 p-4 rounded-lg border border-dark-300">
+                  <h3 className="text-sm font-medium text-gray-400 mb-2">{title}</h3>
+                  <SkeletonBlock className="h-3 w-full mb-2" />
+                  <SkeletonBlock className="h-3 w-full" />
+                </div>
+              ))}
+            </div>
+
+            {/* Growth / Inflation / Jobs table skeletons */}
+            <SkeletonTablePanel title="📊 Growth" />
+            <SkeletonTablePanel title="💰 Inflation" />
+            <SkeletonTablePanel title="👥 Jobs" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+  // ---------- END SKELETON ----------
+
   if (error) return <div className="text-red-400">Error loading asset data</div>;
   if (!data) return <div className="text-gray-400">No data</div>;
 
