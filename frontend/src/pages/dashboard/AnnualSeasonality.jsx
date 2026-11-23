@@ -58,19 +58,19 @@ const AnnualSeasonality = () => {
       line: { color: '#aaaaaa', width: 2, dash: 'dash' },
       yaxis: 'y2',
     },
-    ...(lineWeeks.length > 0 ? [{
-      type: 'scatter',
-      mode: 'lines+markers',
-      x: lineWeeks,
-      y: lineYtd,
-      name: 'YTD Performance',
-      line: {
-        color: '#ff4a5a',
-        width: 2.5,
-      },
-      marker: { color: '#ff4a5a', size: 4 },
-      yaxis: 'y1',
-    }] : []),
+    // ...(lineWeeks.length > 0 ? [{
+    //   type: 'scatter',
+    //   mode: 'lines+markers',
+    //   x: lineWeeks,
+    //   y: lineYtd,
+    //   name: 'YTD Performance',
+    //   line: {
+    //     color: '#ff4a5a',
+    //     width: 2.5,
+    //   },
+    //   marker: { color: '#ff4a5a', size: 4 },
+    //   yaxis: 'y1',
+    // }] : []),
   ];
 
   const layout = {
