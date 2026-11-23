@@ -2,23 +2,72 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BarChart3, Home } from 'lucide-react';
 
+// Pip value per standard lot (100,000 units) for each pair
+const PIP_VALUES = {
+  EURUSD: 10.0,
+  GBPUSD: 10.0,
+  AUDUSD: 10.0,
+  NZDUSD: 10.0,
+  USDCAD: 7.12,
+  USDCHF: 12.13,
+  USDJPY: 6.33,
+  EURGBP: 13.39,
+  EURJPY: 6.33,
+  EURCHF: 12.13,
+  EURAUD: 7.02,
+  EURCAD: 7.12,
+  EURNZD: 5.69,
+  GBPJPY: 6.33,
+  GBPCHF: 12.13,
+  GBPAUD: 7.02,
+  GBPCAD: 7.12,
+  GBPNZD: 5.69,
+  AUDJPY: 6.33,
+  AUDCHF: 12.13,
+  AUDCAD: 7.12,
+  AUDNZD: 5.69,
+  NZDJPY: 6.33,
+  NZDCHF: 12.13,
+  NZDCAD: 7.12,
+  CADJPY: 6.33,
+  CADCHF: 12.13,
+  CHFJPY: 6.33,
+};
+
+const PAIRS = Object.keys(PIP_VALUES);
+
+// Pretty display: "EURUSD" -> "EUR/USD"
+const formatPair = (pair) => `${pair.slice(0, 3)}/${pair.slice(3)}`;
+
+const DEFAULTS = {
+  accountBalance: 10000,
+  riskPercent: 0.5,
+  pair: 'EURUSD',
+  stopLossPips: 50,
+};
+
 const PositionSizeCalculator = () => {
   const navigate = useNavigate();
 
   // Input states
-  const [accountBalance, setAccountBalance] = useState(10000);
-  const [riskPercent, setRiskPercent] = useState(1);
-  const [stopLossPips, setStopLossPips] = useState(50);
-  const [pipValue, setPipValue] = useState(10); // default for USD pairs (1 standard lot)
+  const [accountBalance, setAccountBalance] = useState(DEFAULTS.accountBalance);
+  const [riskPercent, setRiskPercent] = useState(DEFAULTS.riskPercent);
+  const [pair, setPair] = useState(DEFAULTS.pair);
+  const [stopLossPips, setStopLossPips] = useState(DEFAULTS.stopLossPips);
 
   // Result states
   const [riskAmount, setRiskAmount] = useState(0);
   const [positionSizeLots, setPositionSizeLots] = useState(0);
   const [positionSizeUnits, setPositionSizeUnits] = useState(0);
+  const [calculatedPipValue, setCalculatedPipValue] = useState(null);
+
+  // Pip value is derived from the selected pair
+  const pipValue = PIP_VALUES[pair] ?? 0;
 
   const calculate = () => {
     const risk = (accountBalance * riskPercent) / 100;
     setRiskAmount(risk);
+    setCalculatedPipValue(pipValue);
 
     if (stopLossPips > 0 && pipValue > 0) {
       const lots = risk / (stopLossPips * pipValue);
@@ -31,13 +80,14 @@ const PositionSizeCalculator = () => {
   };
 
   const reset = () => {
-    setAccountBalance(10000);
-    setRiskPercent(1);
-    setStopLossPips(50);
-    setPipValue(10);
+    setAccountBalance(DEFAULTS.accountBalance);
+    setRiskPercent(DEFAULTS.riskPercent);
+    setPair(DEFAULTS.pair);
+    setStopLossPips(DEFAULTS.stopLossPips);
     setRiskAmount(0);
     setPositionSizeLots(0);
     setPositionSizeUnits(0);
+    setCalculatedPipValue(null);
   };
 
   return (
@@ -102,6 +152,23 @@ const PositionSizeCalculator = () => {
               />
             </div>
             <div>
+              <label className="block text-gray-400 text-sm mb-1">Currency Pair</label>
+              <select
+                value={pair}
+                onChange={(e) => setPair(e.target.value)}
+                className="w-full bg-dark-300 border border-dark-400 rounded px-3 py-2 text-white"
+              >
+                {PAIRS.map((p) => (
+                  <option key={p} value={p}>
+                    {formatPair(p)}
+                  </option>
+                ))}
+              </select>
+              <p className="text-gray-500 text-xs mt-1">
+                Pip value: <span className="text-green-400 font-semibold">${pipValue.toFixed(2)}</span> per standard lot
+              </p>
+            </div>
+            <div>
               <label className="block text-gray-400 text-sm mb-1">Stop Loss (pips)</label>
               <input
                 type="number"
@@ -111,18 +178,6 @@ const PositionSizeCalculator = () => {
                 min="0"
                 step="1"
               />
-            </div>
-            <div>
-              <label className="block text-gray-400 text-sm mb-1">Pip Value ($ per standard lot)</label>
-              <input
-                type="number"
-                value={pipValue}
-                onChange={(e) => setPipValue(parseFloat(e.target.value) || 0)}
-                className="w-full bg-dark-300 border border-dark-400 rounded px-3 py-2 text-white"
-                min="0"
-                step="0.1"
-              />
-              <p className="text-gray-500 text-xs mt-1">Default 10 for most USD pairs. Adjust for exotic pairs.</p>
             </div>
           </div>
 
@@ -143,10 +198,16 @@ const PositionSizeCalculator = () => {
 
           <div className="border-t border-dark-300 pt-4 mt-2">
             <h3 className="text-lg font-semibold text-gray-300 mb-3">Results</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="bg-dark-300/50 p-3 rounded-lg text-center">
                 <p className="text-gray-400 text-xs uppercase">Risk Amount</p>
                 <p className="text-xl font-bold text-green-400">${riskAmount.toFixed(2)}</p>
+              </div>
+              <div className="bg-dark-300/50 p-3 rounded-lg text-center">
+                <p className="text-gray-400 text-xs uppercase">Pip Value</p>
+                <p className="text-xl font-bold text-white">
+                  ${(calculatedPipValue ?? pipValue).toFixed(2)}
+                </p>
               </div>
               <div className="bg-dark-300/50 p-3 rounded-lg text-center">
                 <p className="text-gray-400 text-xs uppercase">Position Size (lots)</p>
@@ -162,7 +223,12 @@ const PositionSizeCalculator = () => {
 
         <div className="mt-6 text-center text-gray-400 text-sm">
           <p>Position size = (Account Balance × Risk %) / (Stop Loss × Pip Value)</p>
-          <p className="text-gray-500 text-xs mt-1">Pip Value is per standard lot (100,000 units).</p>
+          <p className="text-gray-500 text-xs mt-1">
+            Pip Value is per standard lot (100,000 units) for {formatPair(pair)}.
+          </p>
+          <p className="text-gray-500 text-xs mt-1">
+            Pip values are approximate and based on current exchange rates — verify with your broker before trading.
+          </p>
         </div>
       </div>
     </div>
